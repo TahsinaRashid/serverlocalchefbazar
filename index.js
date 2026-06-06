@@ -21,7 +21,10 @@ app.listen(port, () => {
 
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster1.khmigmu.mongodb.net/?appName=Cluster1`;
+//const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster1.khmigmu.mongodb.net/?appName=Cluster1`;
+//const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster1.khmigmu.mongodb.net/localchef?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster1.khmigmu.mongodb.net/LocalChefBazaar?retryWrites=true&w=majority`;
+
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -75,6 +78,42 @@ app.post('/logout', async (req, res) => {
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
     })
     .send({ success: true });
+});
+// Get all meals with pagination and sorting
+app.get('/meals', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10; // Challenge Task: 10 items per page
+        const skip = (page - 1) * limit;
+        
+        // Sorting logic (high-to-low ba low-to-high)
+        const sortQuery = req.query.sort;
+        let sortOption = {};
+        if (sortQuery === 'asc') {
+            sortOption = { price: 1 }; // Low to High
+        } else if (sortQuery === 'desc') {
+            sortOption = { price: -1 }; // High to Low
+        }
+
+        // Database theke filtered data niye asa
+        const result = await mealsCollection.find()
+            .skip(skip)
+            .limit(limit)
+            .sort(sortOption)
+            .toArray();
+
+        // Total meals count (Frontend-e pagination button-er jonno lagbe)
+        const totalMeals = await mealsCollection.countDocuments();
+
+        res.send({
+            meals: result,
+            totalMeals,
+            totalPages: Math.ceil(totalMeals / limit),
+            currentPage: page
+        });
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
 });
 
 }
