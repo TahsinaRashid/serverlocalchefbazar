@@ -48,6 +48,7 @@ const verifyToken = (req, res, next) => {
         next(); // সব ঠিক থাকলে পরের ফাংশনে যেতে দেবে
     });
 };
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 async function run() {
   try {
@@ -145,6 +146,44 @@ app.get('/reviews/:mealId', async (req, res) => {
         const mealId = req.params.mealId;
         const query = { mealId: mealId };
         const result = await db.collection("reviews").find(query).toArray();
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
+app.post('/create-payment-intent', verifyToken, async (req, res) => {
+    try {
+        const { price } = req.body;
+        const amount = parseInt(price * 100); // Stripe poisar calculation handle kore (cents)
+
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: amount,
+            currency: 'bdt', // ba usd use korte paris testing sandbox layout mapping anushare
+            payment_method_types: ['card']
+        });
+
+        res.send({ clientSecret: paymentIntent.client_secret });
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
+
+// 2. Save Payment & Order Info Route (Private)
+app.post('/orders', verifyToken, async (req, res) => {
+    try {
+        const orderData = req.body;
+        const result = await db.collection("orders").insertOne(orderData);
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
+
+// 3. Get Logged-in User's Orders
+app.get('/my-orders', verifyToken, async (req, res) => {
+    try {
+        const email = req.user.email;
+        const result = await db.collection("orders").find({ userEmail: email }).toArray();
         res.send(result);
     } catch (error) {
         res.status(500).send({ message: error.message });
