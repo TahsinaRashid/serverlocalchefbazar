@@ -115,6 +115,41 @@ app.get('/meals', async (req, res) => {
         res.status(500).send({ message: error.message });
     }
 });
+// 1. Get a single meal details by ID
+app.get('/meal/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await mealsCollection.findOne(query);
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
+
+// 2. Post a review for a meal (Private - code standard verifyToken use kora hoyeche)
+app.post('/reviews', verifyToken, async (req, res) => {
+    try {
+        const review = req.body;
+        // reviewsCollection create hobe dynamically
+        const result = await db.collection("reviews").insertOne(review);
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
+
+// 3. Get reviews for a specific meal
+app.get('/reviews/:mealId', async (req, res) => {
+    try {
+        const mealId = req.params.mealId;
+        const query = { mealId: mealId };
+        const result = await db.collection("reviews").find(query).toArray();
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
 
 }
 run().catch(console.dir);
