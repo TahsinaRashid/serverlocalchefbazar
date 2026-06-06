@@ -49,7 +49,40 @@ const verifyToken = (req, res, next) => {
     });
 };
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Middleware to verify if the user is a Chef
+const verifyChef = async (req, res, next) => {
+    const email = req.user.email;
+    const query = { email: email };
+    const user = await db.collection("users").findOne(query);
+    const isChef = user?.role === 'chef';
+    if (!isChef) {
+        return res.status(403).send({ message: 'Forbidden access! Chefs only.' });
+    }
+    next();
+};
 
+// Middleware to verify if the user is an Admin
+const verifyAdmin = async (req, res, next) => {
+    const email = req.user.email;
+    const query = { email: email };
+    const user = await db.collection("users").findOne(query);
+    const isAdmin = user?.role === 'admin';
+    if (!isAdmin) {
+        return res.status(403).send({ message: 'Forbidden access! Admins only.' });
+    }
+    next();
+};
+
+// --- API Route to get specific user's role ---
+app.get('/user/role/:email', verifyToken, async (req, res) => {
+    const email = req.params.email;
+    if (email !== req.user.email) {
+        return res.status(403).send({ message: 'Forbidden access' });
+    }
+    const query = { email: email };
+    const user = await db.collection("users").findOne(query);
+    res.send({ role: user?.role || 'user' });
+});
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
