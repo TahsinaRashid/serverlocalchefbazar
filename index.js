@@ -222,6 +222,63 @@ app.get('/my-orders', verifyToken, async (req, res) => {
         res.status(500).send({ message: error.message });
     }
 });
+// --- CHEF WORKFLOWS ---
+// 1. Add a Meal (Private & Chef Only)
+app.post('/add-meal', verifyToken, verifyChef, async (req, res) => {
+    try {
+        const mealData = req.body;
+        const result = await db.collection("meals").insertOne(mealData);
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
+
+// 2. Get Meals added by a specific Chef
+app.get('/chef-meals/:email', verifyToken, verifyChef, async (req, res) => {
+    try {
+        const email = req.params.email;
+        const result = await db.collection("meals").find({ chefEmail: email }).toArray();
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
+
+
+// --- ADMIN WORKFLOWS ---
+// 3. Platform Statistics Route (Private & Admin Only)
+app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        // ক) টোটাল ইউজার কাউন্ট
+        const totalUsers = await db.collection("users").countDocuments();
+        
+        // খ) টোটাল অর্ডার স্ট্যাটাস কাউন্ট
+        const pendingOrders = await db.collection("orders").countDocuments({ status: "pending" });
+        const deliveredOrders = await db.collection("orders").countDocuments({ status: "delivered" });
+
+        // গ) টোটাল পেমেন্ট অ্যামাউন্ট (Aggregation)
+        const paymentStats = await db.collection("orders").aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$price" }
+                }
+            }
+        ]).toArray();
+
+        const totalRevenue = paymentStats.length > 0 ? paymentStats[0].totalRevenue : 0;
+
+        res.send({
+            totalUsers,
+            pendingOrders,
+            deliveredOrders,
+            totalRevenue
+        });
+    } catch (error) {
+        res.status(500).send({ message: error.message });
+    }
+});
 
 }
 run().catch(console.dir);
